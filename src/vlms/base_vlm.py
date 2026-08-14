@@ -384,6 +384,8 @@ class BaseVLM(ABC):
 
         token_count_accumulator = {
         }
+        iteration_timings = []
+        termination_reason = "max_iterations_reached"
 
         iter_count = 0
         while iters_remaining > 0:
@@ -415,6 +417,18 @@ class BaseVLM(ABC):
             complete = response.get("complete", False)
 
             if complete:
+                termination_reason = "model_declared_complete"
+                iteration_timings.append({
+                    "iteration": iter_count + 1,
+                    "vlm_time_seconds": round(t_vlm, 3),
+                    "cadquery_time_seconds": 0.0,
+                    "total_time_seconds": round(t_vlm, 3),
+                    "input_tokens": token_counts.get("input_tokens", 0),
+                    "output_tokens": token_counts.get("output_tokens", 0),
+                    "thinking_tokens": thinking_tokens,
+                    "completed": True,
+                    "had_error": False,
+                })
                 print(f"[Iter {iter_count + 1}/{max_iters}] Task declared complete by model! (VLM API: {t_vlm:.2f}s | thinking: {thinking_tokens} tok)")
                 break
 
@@ -423,7 +437,20 @@ class BaseVLM(ABC):
             program_output = run_function(script, harness_script_file, output_dir, input_file=input_file)
             t_cad = time.perf_counter() - t_cad_start
 
-            print(f"[Iter {iter_count + 1}/{max_iters}] VLM Think/Gen: {t_vlm:.2f}s (thinking: {thinking_tokens} tok) | CadQuery Exec: {t_cad:.2f}s | Iter Total: {t_vlm + t_cad:.2f}s")
+            has_error = any(err in program_output for err in ["Error", "Traceback", "Exception", "SyntaxError", "ValueError"])
+            iteration_timings.append({
+                "iteration": iter_count + 1,
+                "vlm_time_seconds": round(t_vlm, 3),
+                "cadquery_time_seconds": round(t_cad, 3),
+                "total_time_seconds": round(t_vlm + t_cad, 3),
+                "input_tokens": token_counts.get("input_tokens", 0),
+                "output_tokens": token_counts.get("output_tokens", 0),
+                "thinking_tokens": thinking_tokens,
+                "completed": False,
+                "had_error": has_error,
+            })
+
+            print(f"[Iter {iter_count + 1}/{max_iters}] VLM Think/Gen: {t_vlm:.2f}s (thinking: {thinking_tokens} tok) | CadQuery Exec: {t_cad:.2f}s | Iter Total: {t_vlm + t_cad:.2f}s" + (" [ERROR OCCURRED]" if has_error else ""))
 
             # Logging iteration outputs
             iteration_dir = os.path.join(output_dir, "iteration_output")
@@ -468,6 +495,11 @@ class BaseVLM(ABC):
 
         return_dict = {
             "token_counts": token_count_accumulator,
+            "num_iterations": len(iteration_timings),
+            "termination_reason": termination_reason,
+            "total_vlm_time_seconds": round(sum(it["vlm_time_seconds"] for it in iteration_timings), 3),
+            "total_cadquery_time_seconds": round(sum(it["cadquery_time_seconds"] for it in iteration_timings), 3),
+            "iteration_timings": iteration_timings,
         }
         if output_script_key is not None:
             return_dict[output_script_key] = script
