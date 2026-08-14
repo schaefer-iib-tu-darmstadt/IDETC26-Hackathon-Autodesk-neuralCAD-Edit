@@ -5,6 +5,14 @@ import json
 
 from google.genai import types
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
+
 class VLM(BaseVLM):
     """
     A Vision-Language Model (VLM) implementation that interacts with the Gemini API.
@@ -12,19 +20,33 @@ class VLM(BaseVLM):
 
     def __init__(self, config: dict, cache: bool = True):
         """
-        Initializes the GeminiVLM with a Gemini API key.
+        Initializes the GeminiVLM against either backend the google-genai SDK offers.
 
-        Args:
-            gemini_api_key (str): The API key for Gemini.
+        Vertex AI is used when GOOGLE_CLOUD_PROJECT is set (authenticating through
+        application default credentials, optionally with GOOGLE_CLOUD_LOCATION,
+        default "global"); otherwise the public Gemini API is used with
+        GEMINI_API_KEY.
         """
 
         super().__init__(config=config, cache=cache)
         self.config = config
 
+        self.gcp_project = os.environ.get("GOOGLE_CLOUD_PROJECT")
         self.gemini_api_key = os.environ.get("GEMINI_API_KEY")
-        if not self.gemini_api_key:
-            raise ValueError("Gemini API key not found. Please set the GEMINI_API_KEY environment variable.")
-        self.client = genai.Client(api_key=self.gemini_api_key)
+
+        if self.gcp_project:
+            self.client = genai.Client(
+                vertexai=True,
+                project=self.gcp_project,
+                location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
+            )
+        elif self.gemini_api_key:
+            self.client = genai.Client(api_key=self.gemini_api_key)
+        else:
+            raise ValueError(
+                "No Gemini credentials found. Set GOOGLE_CLOUD_PROJECT for Vertex AI "
+                "(with application default credentials), or GEMINI_API_KEY for the Gemini API."
+            )
 
 
     def create_messages(self, inputs, sys=None):
@@ -51,7 +73,9 @@ class VLM(BaseVLM):
             else:
                 parts.append(types.Part(text=part))
                 
-        contents = types.Content(parts=parts)
+        # Vertex AI rejects a Content without a role ("Please use a valid role: user, model");
+        # the Gemini API defaults it. Setting it explicitly is valid on both backends.
+        contents = types.Content(role="user", parts=parts)
         return contents
 
 
@@ -66,7 +90,7 @@ class VLM(BaseVLM):
             generation_config_args = {
                 "system_instruction": self.config["system_prompt"],
                 "temperature": 0.0,
-                "max_output_tokens": 20000
+                "max_output_tokens": self.config.get("max_output_tokens", 20000)
             }
             if "thinking_level" in self.config:
                 generation_config_args["thinking_config"] = types.ThinkingConfig(thinking_level=self.config["thinking_level"], include_thoughts=True)
@@ -85,6 +109,18 @@ class VLM(BaseVLM):
                 pass
 
             response = full_response.text
+
+            if response is None:
+                # No text part came back - usually the whole output budget went into
+                # thinking (finish_reason MAX_TOKENS), sometimes a safety block. Report
+                # the reason instead of failing later on a None.
+                candidates = full_response.candidates or []
+                finish_reason = candidates[0].finish_reason if candidates else None
+                usage = full_response.usage_metadata
+                raise RuntimeError(
+                    f"Gemini returned no text (finish_reason={finish_reason}, "
+                    f"prompt_feedback={full_response.prompt_feedback}, usage={usage})"
+                )
 
             # get rid of ```json and '''
             if response.startswith("```json"):

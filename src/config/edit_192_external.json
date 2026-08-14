@@ -129,6 +129,8 @@
         "edit": [
             "gt human",
             "other human",
+            "gemini-3.7-flash_cadquery-script",
+            "gemini-3.1-pro_cadquery-script",
             "gemini-3-pro_cadquery-script",
             "gpt-5.2_cadquery-script",
             "claude-sonnet-4.5_cadquery-script",
@@ -141,6 +143,28 @@
         "edit_hard": "chamfer_similarity"
     },
     "benchmark_models":{
+        "gemini-3.7-flash_cadquery-script":{
+            "family": "gemini",
+            "model": "gemini-3.7-flash",
+            "thinking_level": "high",
+            "system_prompt": "You are an expert CadQuery function generator.",
+            "request_types": [
+            ],
+            "1m_token_cost_input": 0.75,
+            "1m_token_cost_output": 3.75,
+            "function": "cadquery_script"
+        },
+        "gemini-3.1-pro_cadquery-script":{
+            "family": "gemini",
+            "model": "gemini-3.1-pro-preview",
+            "thinking_level": "high",
+            "system_prompt": "You are an expert CadQuery function generator.",
+            "request_types": [
+            ],
+            "1m_token_cost_input": 2.00,
+            "1m_token_cost_output": 12.00,
+            "function": "cadquery_script"
+        },
         "gemini-3-pro_cadquery-script":{
             "family": "gemini",
             "model": "gemini-3-pro-preview",
