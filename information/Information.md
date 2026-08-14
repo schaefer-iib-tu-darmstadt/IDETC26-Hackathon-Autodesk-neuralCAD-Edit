@@ -41,3 +41,22 @@ Paper: https://arxiv.org/abs/2604.16170
 - 40 % Qualitative Evaluation (Method Eval: Novelty, Cost efficiency, Scalability)
 - 20 % Other incl. Presentation quality, structure and clarity. Future work and broader impact discussion
 
+### No-op Baseline
+48 requests:
+  chamfer_similarity_norm   0.971
+  volume_f1                 0.899
+  diff_f1                   0.062
+
+### Gemini Harness Baseline
+
+# 1. Inferenz. Nicht DB nur Dateisystem.
+uv run python src/scripts_benchmark_inference/run_harness.py --config src/config/edit_192_external.json --input data/edit_192_external/parquets/val_edit_text.parquet --output_dir data/model_outputs --harness src/harnesses/cadquery_script.py --userId gemini-3.7-flash_cadquery-script --required-extensions step
+
+# 2. Konvertierung: STEP → STL + 7 Views.
+uv run python src/scripts_preprocess/cadquery_convert.py data/model_outputs/cadquery_script/gemini-3.7-flash_cadquery-script
+
+# 3. DB-Ingest.
+uv run python src/scripts/build_instructions_db.py --config src/config/edit_192_external.json
+
+# 4. Eval. Rechnet die drei Metriken für die neuen Edits, lässt die bestehenden unberührt (Key-Skip).
+uv run python src/scripts/run_all_benchmarks.py --config src/config/edit_192_external.json
