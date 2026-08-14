@@ -19,7 +19,7 @@ We provide:
 
 Instructions are provided below, but please get in touch if you have any questions.
 
-### Setup
+### Setup ✅
 
 1. Clone this repo
 2. Install dependencies (recommended, cross-platform):
@@ -39,16 +39,16 @@ Run scripts with `uv run python ...` or set `PYTHONPATH` to the repo root.
 
 
 
-### Download and visualise data
+### Download and visualise data ✅
 
 > **⚠️ Important:**  
 > This hackathon problem uses data that is **significantly different** from the original dataset.  
 >
 > **Use the data linked below for this competition, do *not* use previous versions of the dataset.**
 
-1. [Download the pre-computed database zip](https://myshare.autodesk.com/:u:/g/personal/daniele_grandi_autodesk_com/IQAT9e3wi76SQ6zqJX6uCAn_AQ-6SOrZbl44TW_GuRkJbXo?e=iDQ8CG) and extract it into `data/edit_192_external` (or another location and update `storage_dir` in `src/config/edit_192_external.json`). The slimmed hackathon dataset contains 48 text-conditioned edit requests with paper-matching DINO features, human GT edits, and foundation-model baselines.
-2. To keep only text-conditioned requests in the database, run `uv run python src/scripts/filter_dataset_text_only.py --config src/config/edit_192_external.json`.
-3. Try using `src/notebooks/visualise_examples.ipynb` to look at some of the data.
+1. [Download the pre-computed database zip](https://myshare.autodesk.com/:u:/g/personal/daniele_grandi_autodesk_com/IQAT9e3wi76SQ6zqJX6uCAn_AQ-6SOrZbl44TW_GuRkJbXo?e=iDQ8CG) and extract it into `data/edit_192_external` (or another location and update `storage_dir` in `src/config/edit_192_external.json`). The slimmed hackathon dataset contains 48 text-conditioned edit requests with paper-matching DINO features, human GT edits, and foundation-model baselines. ✅
+2. To keep only text-conditioned requests in the database, run `uv run python src/scripts/filter_dataset_text_only.py --config src/config/edit_192_external.json`. ✅
+3. Try using `src/notebooks/visualise_examples.ipynb` to look at some of the data. ✅
 
 
 
