@@ -6,6 +6,7 @@ import subprocess
 import json
 import shutil
 import sys
+import time
 
 class GenerateResponseResult:
     def __init__(self, response_json=None, response_text=None, token_counts=None, thinking_text=None):
@@ -386,12 +387,16 @@ class BaseVLM(ABC):
 
         iter_count = 0
         while iters_remaining > 0:
+            print(f"\n--- [Iteration {iter_count + 1}/{max_iters}] (Remaining: {iters_remaining}) ---")
             messages.append(f"Iterations remaining: {iters_remaining}")
+            
+            t_vlm_start = time.perf_counter()
             whole_response = self.generate_response(self.create_messages(messages, sys=self.config["system_prompt"]), return_token_counts=True)
+            t_vlm = time.perf_counter() - t_vlm_start
 
             response = whole_response.response_json
             token_counts = whole_response.token_counts            
-
+            thinking_tokens = token_counts.get("thinking_tokens", 0)
 
             for k in token_counts.keys():
                 token_count_accumulator[k] = token_count_accumulator.get(k, 0) + token_counts[k]
@@ -410,11 +415,15 @@ class BaseVLM(ABC):
             complete = response.get("complete", False)
 
             if complete:
-                print("Task completed.")
+                print(f"[Iter {iter_count + 1}/{max_iters}] Task declared complete by model! (VLM API: {t_vlm:.2f}s | thinking: {thinking_tokens} tok)")
                 break
 
-            # run the script in FreeCAD
+            t_cad_start = time.perf_counter()
+            # run the script in CadQuery
             program_output = run_function(script, harness_script_file, output_dir, input_file=input_file)
+            t_cad = time.perf_counter() - t_cad_start
+
+            print(f"[Iter {iter_count + 1}/{max_iters}] VLM Think/Gen: {t_vlm:.2f}s (thinking: {thinking_tokens} tok) | CadQuery Exec: {t_cad:.2f}s | Iter Total: {t_vlm + t_cad:.2f}s")
 
             # Logging iteration outputs
             iteration_dir = os.path.join(output_dir, "iteration_output")

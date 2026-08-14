@@ -166,11 +166,21 @@ def process_parquet(args, config, model, required_extensions=[]):
     # refs = [run_single_task.remote(model.config, row, args) for index, row in parquet.iterrows() if row["request"] not in existing_request_ids]
     # results = ray.get(refs)
     # ray.shutdown()
+    total_rows = len(parquet)
+    print(f"Total tasks in dataset: {total_rows}. Found {len(existing_request_ids)} already completed.")
+
     done_count = 0
     for index, row in parquet.iterrows():
+        task_num = index + 1
         if row["request"] in existing_request_ids:
-            print(f"Skipping existing request {row['request']}. Already exists.")
+            print(f"[{task_num}/{total_rows}] Skipping existing request {row['request']}. (Already exists)")
             continue
+
+        print(f"\n================================================================================")
+        print(f"[{task_num}/{total_rows}] Starting Task: {row['request']}")
+        print(f"Instruction: {row.get('request_text', 'N/A')}")
+        print(f"================================================================================")
+
         run_single_task(model, row, args)
         done_count += 1
         if done_count >= args.n_rows:
