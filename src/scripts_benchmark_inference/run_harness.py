@@ -1,3 +1,4 @@
+# Note: Baseline harness script with added parallel worker support (--workers) and progress logging.
 # from src.scripts.build_instructions_db import load_all_instructions  # Import the instructions_db directly
 from src.utils.args import parse_args
 from src.utils.process_config import load_config
@@ -175,6 +176,7 @@ def process_parquet(args, config, model, required_extensions=[]):
     if not pending_rows:
         print("No tasks remaining to process.")
     elif args.workers > 1:
+        # Note: Multithreaded execution across tasks
         print(f"Running {len(pending_rows)} tasks in parallel using {args.workers} workers...")
         with ThreadPoolExecutor(max_workers=args.workers) as executor:
             future_to_req = {
@@ -191,6 +193,7 @@ def process_parquet(args, config, model, required_extensions=[]):
                 except Exception as e:
                     print(f"[{completed_count}/{len(pending_rows)}] Error in Task {req_id}: {e}")
     else:
+        # Note: Sequential execution with progress logging
         for idx, row in enumerate(pending_rows, 1):
             print(f"\n================================================================================")
             print(f"[{idx}/{len(pending_rows)}] Starting Task: {row['request']}")

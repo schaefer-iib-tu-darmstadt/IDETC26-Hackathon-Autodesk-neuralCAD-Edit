@@ -208,6 +208,7 @@ if __name__ == "__main__":
         function_file = os.path.expanduser(args["function_file"])
         if os.path.exists(function_file):
             try:
+                # Note: Explicit UTF-8 encoding for Windows support
                 with open(function_file, 'r', encoding='utf-8') as f:
                     function_string = f.read()
                 print(f"Loading function from: {function_file}")

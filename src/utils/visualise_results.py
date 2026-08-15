@@ -150,6 +150,7 @@ def _bar_models(config, request_type):
     ]
 
 
+# Note: Check whether a model has evaluation data to omit empty bars in plots
 def _has_model_data(results: dict, model: str) -> bool:
     """Check if a model has at least one non-None score in the results dict."""
     for task_data in results.values():

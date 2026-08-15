@@ -366,19 +366,14 @@ class BaseVLM(ABC):
         if run_function is None:
             raise ValueError("run_function must be provided to visual_update_loop")
         
-        messages = []
-
-        messages.append(conversation_instruction)
-
+        base_messages = []
+        base_messages.append(conversation_instruction)
         harness_script = self.read_text_file(harness_script_file)
-
-        messages.append(harness_script)
-
-        messages.append("Instruction:")
-        messages.append(instruction_text)
-        messages.append("Task information:")
-        messages.extend(self.load_task_info_dict(task_info_dict))
-        messages.append("Last output rendering: None (this is the first iteration)")
+        base_messages.append(harness_script)
+        base_messages.append("Instruction:")
+        base_messages.append(instruction_text)
+        base_messages.append("Task information:")
+        base_messages.extend(self.load_task_info_dict(task_info_dict))
 
         iters_remaining = max_iters
 
@@ -388,8 +383,28 @@ class BaseVLM(ABC):
         termination_reason = "max_iterations_reached"
 
         iter_count = 0
+        last_script = None
+        last_program_output = None
+        last_image_fn = None
+
         while iters_remaining > 0:
             print(f"\n--- [Iteration {iter_count + 1}/{max_iters}] (Remaining: {iters_remaining}) ---", flush=True)
+            
+            # Note: Construct fresh prompt with base instructions and latest iteration feedback
+            messages = list(base_messages)
+            if iter_count == 0:
+                messages.append("Last output rendering: None (this is the first iteration)")
+            else:
+                messages.append("The function that you produced from the last iteration:")
+                messages.append(last_script if last_script else "")
+                messages.append("Program output from last iteration:")
+                messages.append(last_program_output if last_program_output else "")
+                messages.append("Visual output from last iteration:")
+                if last_image_fn and os.path.exists(last_image_fn):
+                    messages.append(last_image_fn)
+                else:
+                    messages.append("None")
+
             messages.append(f"Iterations remaining: {iters_remaining}")
             
             t_vlm_start = time.perf_counter()
@@ -438,6 +453,13 @@ class BaseVLM(ABC):
             program_output = run_function(script, harness_script_file, output_dir, input_file=input_file)
             t_cad = time.perf_counter() - t_cad_start
 
+            # Note: Truncate excessively large terminal outputs if necessary
+            if len(program_output) > 10000:
+                program_output_for_prompt = program_output[:4000] + "\n... [output truncated for prompt] ...\n" + program_output[-4000:]
+            else:
+                program_output_for_prompt = program_output
+
+            # Note: Record per-iteration timings and error flags for observability
             has_error = any(err in program_output for err in ["Error", "Traceback", "Exception", "SyntaxError", "ValueError"])
             iteration_timings.append({
                 "iteration": iter_count + 1,
@@ -458,9 +480,10 @@ class BaseVLM(ABC):
             os.makedirs(iteration_dir, exist_ok=True)
             iteration_text_file = os.path.join(iteration_dir, f"{iter_count}_response.txt")
 
+            # Note: Explicit UTF-8 encoding for Windows support
             with open(iteration_text_file, 'w', encoding='utf-8') as f:
                 f.write("Thinking text:\n")
-                f.write(whole_response.thinking_text)
+                f.write(whole_response.thinking_text if whole_response.thinking_text else "")
                 f.write("\n\n")
                 # write the script with correct indentation
                 f.write("Generated script:\n")
@@ -473,20 +496,11 @@ class BaseVLM(ABC):
                 if os.path.exists(image_fn):
                     shutil.copy(image_fn, osp.join(iteration_dir, f"{iter_count}_output.png"))
 
+            # Update latest feedback for next iteration (ensuring only 1 current image)
+            last_script = script
+            last_program_output = program_output_for_prompt
+            last_image_fn = osp.join(output_dir, "tmp.png")
 
-            messages.append("Program output from last iteration:")
-            messages.append(program_output)
-            messages.append("Visual output from last iteration:")
-            
-            image_fn = osp.join(output_dir, "tmp.png")
-            if os.path.exists(image_fn):
-                messages.append(image_fn)
-            else:
-                messages.append("None")
-            messages.append("The function that you produced from the last iteration:")
-            messages.append(script)
-
-            # print(messages)
             iters_remaining -= 1
             iter_count += 1
 
@@ -513,7 +527,8 @@ class BaseVLM(ABC):
     def run_cadquery_script(self, script: str, harness_script_file: str, output_dir: str, input_file: str = None) -> str:
         # save script to temp file
         temp_script_file = os.path.join(output_dir, "temp_script.py")
-        with open(temp_script_file, 'w') as f:
+        # Note: Explicit UTF-8 encoding for Windows support
+        with open(temp_script_file, 'w', encoding='utf-8') as f:
             f.write(script)
 
         cmd = [

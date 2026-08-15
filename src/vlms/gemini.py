@@ -1,5 +1,7 @@
+# Note: Gemini/Vertex AI backend with retry handling, safety settings, and token tracking.
 from .base_vlm import BaseVLM, GenerateResponseResult
 import os
+import time
 from google import genai
 import json
 
@@ -35,7 +37,8 @@ class VLM(BaseVLM):
         self.gemini_api_key = os.environ.get("GEMINI_API_KEY")
 
         self.timeout = float(self.config.get("timeout_seconds", 180.0))
-        http_options = types.HttpOptions(timeout=self.timeout)
+        # Note: Set HTTP timeout in milliseconds for google-genai SDK
+        http_options = types.HttpOptions(timeout=int(self.timeout * 1000))
 
         if self.gcp_project:
             self.client = genai.Client(
@@ -70,18 +73,30 @@ class VLM(BaseVLM):
 
         parts = []
         for i, part in enumerate(inputs):
-            if part.endswith(".png"):
-                # image
-                image_bytes = open(part, "rb").read()
-                parts.append(types.Part(inline_data=types.Blob(data=image_bytes, mime_type='image/png')))
-            elif part.endswith(".jpg") or part.endswith(".jpeg"):
-                image_bytes = open(part, "rb").read()
-                parts.append(types.Part(inline_data=types.Blob(data=image_bytes, mime_type='image/jpeg')))
+            part_str = str(part) if part is not None else "None"
+            # Note: Handle image payloads and empty/corrupted renderings safely
+            if isinstance(part, str) and part.endswith(".png") and os.path.exists(part):
+                try:
+                    image_bytes = open(part, "rb").read()
+                    if len(image_bytes) > 0:
+                        parts.append(types.Part(inline_data=types.Blob(data=image_bytes, mime_type='image/png')))
+                    else:
+                        parts.append(types.Part(text="Visual rendering: None (empty image file)"))
+                except Exception as e:
+                    parts.append(types.Part(text=f"Visual rendering: None (read error: {e})"))
+            elif isinstance(part, str) and (part.endswith(".jpg") or part.endswith(".jpeg")) and os.path.exists(part):
+                try:
+                    image_bytes = open(part, "rb").read()
+                    if len(image_bytes) > 0:
+                        parts.append(types.Part(inline_data=types.Blob(data=image_bytes, mime_type='image/jpeg')))
+                    else:
+                        parts.append(types.Part(text="Visual rendering: None (empty image file)"))
+                except Exception as e:
+                    parts.append(types.Part(text=f"Visual rendering: None (read error: {e})"))
             else:
-                parts.append(types.Part(text=part))
+                parts.append(types.Part(text=part_str))
                 
-        # Vertex AI rejects a Content without a role ("Please use a valid role: user, model");
-        # the Gemini API defaults it. Setting it explicitly is valid on both backends.
+        # Note: Vertex AI requires explicit role="user"; Gemini defaults it
         contents = types.Content(role="user", parts=parts)
         return contents
 
@@ -94,6 +109,7 @@ class VLM(BaseVLM):
                 response = f.read()
         else:
 
+            # Note: Safety filters set to BLOCK_NONE to prevent false positives on CAD code
             generation_config_args = {
                 "system_instruction": self.config["system_prompt"],
                 "temperature": 0.0,
@@ -126,6 +142,7 @@ class VLM(BaseVLM):
 
             generation_config = types.GenerateContentConfig(**generation_config_args)
 
+            # Note: Retry with exponential backoff for transient 429 quota and timeout errors
             max_retries = int(self.config.get("max_retries", 5))
             base_delay = 5.0
             max_delay = 60.0
@@ -179,9 +196,7 @@ class VLM(BaseVLM):
             response = full_response.text
 
             if response is None:
-                # No text part came back - usually the whole output budget went into
-                # thinking (finish_reason MAX_TOKENS), sometimes a safety block. Report
-                # the reason instead of failing later on a None.
+                # Note: Fail fast with diagnostic details if model returned no text part
                 candidates = full_response.candidates or []
                 finish_reason = candidates[0].finish_reason if candidates else None
                 usage = full_response.usage_metadata
@@ -212,24 +227,19 @@ class VLM(BaseVLM):
 
         response_object = GenerateResponseResult(
             response_json=response,
-            response_text=full_response.text if full_response else str(response),
+            response_text=getattr(full_response, 'text', str(response)) if full_response else str(response),
             thinking_text=str(thinking_text) if thinking_text else ""
         )
 
         if return_token_counts:
+            # Note: Track input, output, thinking, and total token usage
+            usage = getattr(full_response, "usage_metadata", None) if full_response else None
             token_count_dict = {
-                "input_tokens": full_response.usage_metadata.prompt_token_count,
-                "output_tokens": full_response.usage_metadata.candidates_token_count,
-                "thinking_tokens": full_response.usage_metadata.thoughts_token_count,
-                "total_tokens": full_response.usage_metadata.total_token_count,
+                "input_tokens": getattr(usage, "prompt_token_count", 0) or 0,
+                "output_tokens": getattr(usage, "candidates_token_count", 0) or 0,
+                "thinking_tokens": getattr(usage, "thoughts_token_count", 0) or 0,
+                "total_tokens": getattr(usage, "total_token_count", 0) or 0,
             }
-            # set any token count to 0 if it is None
-            for k in token_count_dict.keys():
-                if token_count_dict[k] is None:
-                    token_count_dict[k] = 0
             response_object.token_counts = token_count_dict
-
-
-
 
         return response_object
