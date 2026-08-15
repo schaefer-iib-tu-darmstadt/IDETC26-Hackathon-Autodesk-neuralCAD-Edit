@@ -34,14 +34,21 @@ class VLM(BaseVLM):
         self.gcp_project = os.environ.get("GOOGLE_CLOUD_PROJECT")
         self.gemini_api_key = os.environ.get("GEMINI_API_KEY")
 
+        self.timeout = float(self.config.get("timeout_seconds", 180.0))
+        http_options = types.HttpOptions(timeout=self.timeout)
+
         if self.gcp_project:
             self.client = genai.Client(
                 vertexai=True,
                 project=self.gcp_project,
                 location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
+                http_options=http_options,
             )
         elif self.gemini_api_key:
-            self.client = genai.Client(api_key=self.gemini_api_key)
+            self.client = genai.Client(
+                api_key=self.gemini_api_key,
+                http_options=http_options,
+            )
         else:
             raise ValueError(
                 "No Gemini credentials found. Set GOOGLE_CLOUD_PROJECT for Vertex AI "
@@ -119,11 +126,50 @@ class VLM(BaseVLM):
 
             generation_config = types.GenerateContentConfig(**generation_config_args)
 
-            full_response = self.client.models.generate_content(
-                model=self.config["model"],
-                config=generation_config,
-                contents=messages,
-            )
+            max_retries = int(self.config.get("max_retries", 5))
+            base_delay = 5.0
+            max_delay = 60.0
+            full_response = None
+
+            num_parts = len(messages.parts) if hasattr(messages, 'parts') else 1
+            print(f"[Gemini/Vertex] Preparing request with {num_parts} content parts (Timeout: {self.timeout}s)...", flush=True)
+
+            for attempt in range(1, max_retries + 1):
+                try:
+                    t_call_start = time.perf_counter()
+                    print(f"[Gemini/Vertex] Attempt {attempt}/{max_retries}: Request sent, waiting for model response...", flush=True)
+                    full_response = self.client.models.generate_content(
+                        model=self.config["model"],
+                        config=generation_config,
+                        contents=messages,
+                    )
+                    t_call_elapsed = time.perf_counter() - t_call_start
+                    usage = getattr(full_response, "usage_metadata", None)
+                    in_tok = getattr(usage, "prompt_token_count", "?")
+                    out_tok = getattr(usage, "candidates_token_count", "?")
+                    th_tok = getattr(usage, "thoughts_token_count", 0)
+                    print(f"[Gemini/Vertex] Response received in {t_call_elapsed:.2f}s | Tokens: In={in_tok}, Out={out_tok}, Thinking={th_tok}", flush=True)
+                    break
+                except Exception as e:
+                    err_str = str(e).lower()
+                    code = getattr(e, "code", None)
+                    is_rate_limit = (code == 429) or ("resource_exhausted" in err_str) or ("quota" in err_str) or ("429" in err_str)
+                    is_timeout = ("timeout" in err_str) or ("timed out" in err_str) or ("deadline" in err_str)
+                    is_transient = is_rate_limit or is_timeout or (code in [500, 502, 503, 504]) or ("unavailable" in err_str)
+
+                    if attempt < max_retries and is_transient:
+                        # Exponential backoff
+                        delay = min(max_delay, base_delay * (2 ** (attempt - 1)))
+                        if is_rate_limit:
+                            print(f"\n[Gemini/Vertex Rate Limit] 429 Quota/Rate limit reached! Waiting {delay:.1f}s before retry {attempt+1}/{max_retries}... Details: {e}", flush=True)
+                        elif is_timeout:
+                            print(f"\n[Gemini/Vertex Timeout] Socket timed out after {self.timeout}s! Waiting {delay:.1f}s before retry {attempt+1}/{max_retries}... Details: {e}", flush=True)
+                        else:
+                            print(f"\n[Gemini/Vertex Error] Transient error ({code or type(e).__name__}). Waiting {delay:.1f}s before retry {attempt+1}/{max_retries}... Details: {e}", flush=True)
+                        time.sleep(delay)
+                    else:
+                        print(f"\n[Gemini/Vertex Error] Call failed permanently after {attempt} attempts: {e}", flush=True)
+                        raise
 
             try:
                 thinking_text = [part for part in full_response.parts if part.thought]
