@@ -389,7 +389,7 @@ class BaseVLM(ABC):
 
         iter_count = 0
         while iters_remaining > 0:
-            print(f"\n--- [Iteration {iter_count + 1}/{max_iters}] (Remaining: {iters_remaining}) ---")
+            print(f"\n--- [Iteration {iter_count + 1}/{max_iters}] (Remaining: {iters_remaining}) ---", flush=True)
             messages.append(f"Iterations remaining: {iters_remaining}")
             
             t_vlm_start = time.perf_counter()
@@ -410,7 +410,7 @@ class BaseVLM(ABC):
                 try:
                     response = json.loads(response)
                 except json.JSONDecodeError as e:
-                    print(f"Error parsing response as json: {e}")
+                    print(f"Error parsing response as json: {e}", flush=True)
                     response = {}
 
             script = response.get("my_cad_function", "")
@@ -429,9 +429,10 @@ class BaseVLM(ABC):
                     "completed": True,
                     "had_error": False,
                 })
-                print(f"[Iter {iter_count + 1}/{max_iters}] Task declared complete by model! (VLM API: {t_vlm:.2f}s | thinking: {thinking_tokens} tok)")
+                print(f"[Iter {iter_count + 1}/{max_iters}] Task declared complete by model! (VLM API: {t_vlm:.2f}s | thinking: {thinking_tokens} tok)", flush=True)
                 break
 
+            print(f"[CadQuery] Running script in CadQuery environment...", flush=True)
             t_cad_start = time.perf_counter()
             # run the script in CadQuery
             program_output = run_function(script, harness_script_file, output_dir, input_file=input_file)
@@ -450,7 +451,7 @@ class BaseVLM(ABC):
                 "had_error": has_error,
             })
 
-            print(f"[Iter {iter_count + 1}/{max_iters}] VLM Think/Gen: {t_vlm:.2f}s (thinking: {thinking_tokens} tok) | CadQuery Exec: {t_cad:.2f}s | Iter Total: {t_vlm + t_cad:.2f}s" + (" [ERROR OCCURRED]" if has_error else ""))
+            print(f"[Iter {iter_count + 1}/{max_iters}] VLM Think/Gen: {t_vlm:.2f}s (thinking: {thinking_tokens} tok) | CadQuery Exec: {t_cad:.2f}s | Iter Total: {t_vlm + t_cad:.2f}s" + (" [ERROR OCCURRED]" if has_error else ""), flush=True)
 
             # Logging iteration outputs
             iteration_dir = os.path.join(output_dir, "iteration_output")
