@@ -150,6 +150,22 @@ def _bar_models(config, request_type):
     ]
 
 
+def _has_model_data(results: dict, model: str) -> bool:
+    """Check if a model has at least one non-None score in the results dict."""
+    for task_data in results.values():
+        if model in task_data:
+            for metric_data in task_data[model].values():
+                if isinstance(metric_data, dict):
+                    if any(v is not None for v in metric_data.values()):
+                        return True
+                elif isinstance(metric_data, list):
+                    if any(v is not None for v in metric_data):
+                        return True
+                elif metric_data is not None:
+                    return True
+    return False
+
+
 def _score_or_zero(v):
     """Map missing or failed scores to 0.0 so models are penalized for failures."""
     if v is None or v != v:
@@ -275,7 +291,7 @@ def faceted_bar_plot(config: dict, results: dict, request_type: str = "edit", me
         metrics = [m for m in ["chamfer_similarity_norm", "volume_f1", "diff_f1"] if m in metric_model_scores]
         metrics += [m for m in metric_model_scores if m not in metrics]
 
-    models = _bar_models(config, request_type)
+    models = [m for m in _bar_models(config, request_type) if _has_model_data(results, m)]
     means_by_metric = {}
     baseline_means = {}
     for metric in metrics:
