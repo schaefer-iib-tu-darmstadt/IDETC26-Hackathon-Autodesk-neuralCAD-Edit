@@ -208,7 +208,7 @@ if __name__ == "__main__":
         function_file = os.path.expanduser(args["function_file"])
         if os.path.exists(function_file):
             try:
-                with open(function_file, 'r') as f:
+                with open(function_file, 'r', encoding='utf-8') as f:
                     function_string = f.read()
                 print(f"Loading function from: {function_file}")
                 result = load_and_execute_function(function_string, args)
