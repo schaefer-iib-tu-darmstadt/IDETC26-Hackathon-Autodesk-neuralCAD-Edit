@@ -172,5 +172,10 @@ cython_debug/
 !.gitignore
 !.python-version
 
+# PDFs, .pptx-templates and other documentation
 /hackathon/doku/
+information/
+
+# Initial db backup
 mongita_db.backup*
+
