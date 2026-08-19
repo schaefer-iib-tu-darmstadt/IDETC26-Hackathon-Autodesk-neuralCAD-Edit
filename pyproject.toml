@@ -13,6 +13,7 @@ dependencies = [
     "openai",
     "anthropic",
     "google-genai",
+    "google-adk>=2.7.0",
     "json-repair",
     "scikit-learn",
     "open3d",
