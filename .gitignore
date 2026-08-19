@@ -170,12 +170,46 @@ cython_debug/
 # ignore .env and other .files 
 .*
 !.gitignore
+!.gitattributes
 !.python-version
 
 # PDFs, .pptx-templates and other documentation
-/hackathon/doku/
 information/
 
 # Initial db backup
 mongita_db.backup*
+
+# Local dev 
+/tmp/
+/tests/
+/hackathon/results/
+/hackathon/presentation/
+
+# Local analysis helpers
+/src/scripts/compare_runs.py
+/src/scripts/eval_human_baseline.py
+/src/scripts/eval_quick.py
+/src/scripts/make_dev_split.py
+/src/scripts/make_subset_parquet.py
+/src/scripts/replay_retention.py
+/src/scripts/score_all_attempts.py
+/src/scripts/build_submission.py
+/src/scripts/best_of_n_ceiling.py
+/src/scripts/diff_decompose.py
+/hackathon/dev_split.json
+
+# Local presentation helpers
+/dev/
+
+# Video
+/submission/presentation-video/
+
+# Submission: the CAD outputs, scores and the PDF are deliverables and ARE committed.
+# The video goes to the shared Drive folder; the editable deck is not a deliverable.
+/submission/*.pptx
+
+# Written by stage_submission_for_db.py when a judge re-scores the submission
+/src/config/edit_192_external_submission_roundtrip.json
+
+hackathon/methods.excalidraw
 

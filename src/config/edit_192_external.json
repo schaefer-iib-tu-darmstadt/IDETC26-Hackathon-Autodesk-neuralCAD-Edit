@@ -130,6 +130,9 @@
             "gt human",
             "other human",
             "gemini-3.7-flash_cadquery-script",
+            "gemini-3.7-flash_cadquery-script-run2",
+            "gemini-3.7-flash_adk-agent-v3",
+            "gemini-3.7-flash_adk-agent-v4",
             "gemini-3.7-flash-high_cadquery-script",
             "gemini-3.1-pro_cadquery-script",
             "gemini-3-pro_cadquery-script",
@@ -145,6 +148,17 @@
     },
     "benchmark_models":{
         "gemini-3.7-flash_cadquery-script":{
+            "family": "gemini",
+            "model": "gemini-3.7-flash",
+            "thinking_level": "medium",
+            "system_prompt": "You are an expert CadQuery function generator.",
+            "request_types": [
+            ],
+            "1m_token_cost_input": 0.75,
+            "1m_token_cost_output": 3.75,
+            "function": "cadquery_script"
+        },
+        "gemini-3.7-flash_cadquery-script-run2":{
             "family": "gemini",
             "model": "gemini-3.7-flash",
             "thinking_level": "medium",
@@ -223,6 +237,55 @@
             "1m_token_cost_input": 5,
             "1m_token_cost_output": 30,
             "function": "cadquery_script"
+        },
+        "gemini-3.7-flash_adk-agent-v3":{
+            "family": "gemini",
+            "model": "gemini-3.7-flash",
+            "thinking_level": "medium",
+            "system_prompt": "You are an expert autonomous CAD engineering agent.",
+            "request_types": [
+            ],
+            "1m_token_cost_input": 0.75,
+            "1m_token_cost_output": 3.75,
+            "max_turns": 14,
+            "function": "agentic_cadquery_v3",
+            "damaged_candidate_policy": "fallback_to_input",
+            "features": {
+                "views_start": 7,
+                "views_feedback": "iso,front,top",
+                "render_on_demand": true,
+                "diff_render": true,
+                "revert": true,
+                "inspect": true,
+                "dry_run": true,
+                "query_budget": 6,
+                "render_timeout": 300
+            }
+        },
+        "gemini-3.7-flash_adk-agent-v4":{
+            "family": "gemini",
+            "model": "gemini-3.7-flash",
+            "thinking_level": "medium",
+            "system_prompt": "You are an expert autonomous CAD engineering agent.",
+            "request_types": [
+            ],
+            "1m_token_cost_input": 0.75,
+            "1m_token_cost_output": 3.75,
+            "max_turns": 10,
+            "seed": 20260818,
+            "function": "agentic_cadquery_v4",
+            "damaged_candidate_policy": "fallback_to_input",
+            "features": {
+                "views_start": 7,
+                "views_feedback": "iso",
+                "edit_render": false,
+                "diff_render": false,
+                "max_probe_calls": 2,
+                "probe_timeout": 30,
+                "transport_retry_base_seconds": 15,
+                "render_timeout": 300,
+                "trace": true
+            }
         }
     }
 }

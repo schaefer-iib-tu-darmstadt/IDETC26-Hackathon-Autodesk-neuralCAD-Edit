@@ -15,6 +15,7 @@ import pandas as pd
 import argparse
 import time
 import shutil
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
@@ -85,7 +86,8 @@ def run_single_task(vlm, row, args):
     instructions = task_instructions.get(row["request_type"], "No instructions available.")
 
     start = time.time()
-    edit_id = f"{args.userId}_{start}"
+    # Prevent parallel tasks that start in the same clock tick from sharing an output directory.
+    edit_id = f"{args.userId}_{start}_{uuid.uuid4().hex[:6]}"
 
     sample_output_folder = os.path.join(args.output_folder, edit_id, "brep_end", str(start))
     os.makedirs(sample_output_folder, exist_ok=True)

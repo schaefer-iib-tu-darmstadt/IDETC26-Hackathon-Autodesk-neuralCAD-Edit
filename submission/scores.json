@@ -1,0 +1,349 @@
+{
+  "model": "v4 Grounded Delta CAD Agent - Gemini 3.7 Flash medium",
+  "evaluator": "src/scripts/run_all_benchmarks.py",
+  "metrics": {
+    "chamfer_similarity_norm": 0.9778772418487298,
+    "volumetric_f1": 0.91759127791924,
+    "diff_f1": 0.48410623505286465
+  },
+  "three_metric_mean": 0.7931915849402782,
+  "tasks": 48,
+  "per_task": [
+    {
+      "request_id": "3YH2WFSRM22W7DKT_1769174947.8063738",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9957390196900507,
+      "volumetric_f1": 1.0,
+      "diff_f1": 0.998266130519792
+    },
+    {
+      "request_id": "3YH2WFSRM22W7DKT_1769175216.745646",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.8375928342192439,
+      "volumetric_f1": 0.15639481000926783,
+      "diff_f1": 0.015139302610828806
+    },
+    {
+      "request_id": "3YH2WFSRM22W7DKT_1769175629.871246",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.9697660414022665,
+      "volumetric_f1": 0.5695409114009825,
+      "diff_f1": 0.3944850382741823
+    },
+    {
+      "request_id": "3YH2WFSRM22W7DKT_1769176912.388391",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9933932540156286,
+      "volumetric_f1": 0.9818380101505809,
+      "diff_f1": 0.5933333333333334
+    },
+    {
+      "request_id": "3YH2WFSRM22W7DKT_1769177020.525719",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.9894009707832186,
+      "volumetric_f1": 0.7775919732441472,
+      "diff_f1": 0.16647081864473168
+    },
+    {
+      "request_id": "3YH2WFSRM22W7DKT_1769177116.6129558",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.9939902611735878,
+      "volumetric_f1": 0.9888061220336224,
+      "diff_f1": 0.15384615384615385
+    },
+    {
+      "request_id": "3YH2WFSRM22W7DKT_1769773134.1453462",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.980515831385045,
+      "volumetric_f1": 0.7643427977389383,
+      "diff_f1": 0.1434306856648036
+    },
+    {
+      "request_id": "3YH2WFSRM22W7DKT_1769773335.525203",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.9848133630284182,
+      "volumetric_f1": 0.9947012144106686,
+      "diff_f1": 0.7564056297365572
+    },
+    {
+      "request_id": "3YH2WFSRM22W7DKT_1769773481.491738",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.9841117463820996,
+      "volumetric_f1": 0.9879315893522137,
+      "diff_f1": 0.9033683048039757
+    },
+    {
+      "request_id": "3YH2WFSRM22W7DKT_1769779150.98797",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9842619340176421,
+      "volumetric_f1": 0.9986860331657894,
+      "diff_f1": 0.9475015812776724
+    },
+    {
+      "request_id": "3YH2WFSRM22W7DKT_1769782403.586036",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.9850025351514987,
+      "volumetric_f1": 0.9994141041119239,
+      "diff_f1": 0.6692307692307692
+    },
+    {
+      "request_id": "3YH2WFSRM22W7DKT_1769783385.069543",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.984611542556126,
+      "volumetric_f1": 0.999668582421935,
+      "diff_f1": 0.0
+    },
+    {
+      "request_id": "4E22SJE7QVTSP2E3_1758737060.465216",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9891312202868191,
+      "volumetric_f1": 0.999975710272126,
+      "diff_f1": 0.9992609016999261
+    },
+    {
+      "request_id": "4E22SJE7QVTSP2E3_1758737118.288898",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.9884981278444657,
+      "volumetric_f1": 0.9653471161752614,
+      "diff_f1": 0.7106731126812942
+    },
+    {
+      "request_id": "4E22SJE7QVTSP2E3_1758737238.499021",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.899579813718774,
+      "volumetric_f1": 0.8761826147691917,
+      "diff_f1": 0.11913986826811314
+    },
+    {
+      "request_id": "4S7JQK6ZQMAD25GL_1758863141.735564",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9895820556315477,
+      "volumetric_f1": 0.9980169686361536,
+      "diff_f1": 0.6165211551376762
+    },
+    {
+      "request_id": "4S7JQK6ZQMAD25GL_1758863286.214549",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.9887603239103407,
+      "volumetric_f1": 0.9929953438835561,
+      "diff_f1": 0.6618325642715887
+    },
+    {
+      "request_id": "4S7JQK6ZQMAD25GL_1758863403.376244",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.989102576070394,
+      "volumetric_f1": 0.9964050824696119,
+      "diff_f1": 0.0
+    },
+    {
+      "request_id": "B7A2N74ZJBF9MZHU_1770166308.11235",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9931195449777078,
+      "volumetric_f1": 0.9997630178598358,
+      "diff_f1": 0.9940828402366864
+    },
+    {
+      "request_id": "B7A2N74ZJBF9MZHU_1770166901.871316",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.992878840752555,
+      "volumetric_f1": 0.9956019546868059,
+      "diff_f1": 0.5714285714285714
+    },
+    {
+      "request_id": "B7A2N74ZJBF9MZHU_1770167800.9857888",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.992649990355459,
+      "volumetric_f1": 0.9980328162024411,
+      "diff_f1": 0.5
+    },
+    {
+      "request_id": "B7A2N74ZJBF9MZHU_1770169445.8914912",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9889825495948285,
+      "volumetric_f1": 0.9998691030944028,
+      "diff_f1": 0.0
+    },
+    {
+      "request_id": "B7A2N74ZJBF9MZHU_1770169718.2982779",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.9890078928612457,
+      "volumetric_f1": 0.9986112930695663,
+      "diff_f1": 0.0
+    },
+    {
+      "request_id": "B7A2N74ZJBF9MZHU_1770169975.851399",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.9889449066858564,
+      "volumetric_f1": 0.9998429031497919,
+      "diff_f1": 0.7272727272727273
+    },
+    {
+      "request_id": "B7A2N74ZJBF9MZHU_1770171470.1448698",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9933644211492753,
+      "volumetric_f1": 0.8193207547169812,
+      "diff_f1": 0.13293051359516617
+    },
+    {
+      "request_id": "B7A2N74ZJBF9MZHU_1770171700.697783",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.9959231074411765,
+      "volumetric_f1": 0.9988013185495954,
+      "diff_f1": 0.9897959183673469
+    },
+    {
+      "request_id": "B7A2N74ZJBF9MZHU_1770172545.5244548",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.9949610513800446,
+      "volumetric_f1": 0.9991321327836841,
+      "diff_f1": 0.9970181621035511
+    },
+    {
+      "request_id": "B7A2N74ZJBF9MZHU_1770174133.012106",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9856566982859456,
+      "volumetric_f1": 0.999752803433785,
+      "diff_f1": 0.7979139504563233
+    },
+    {
+      "request_id": "B7A2N74ZJBF9MZHU_1770174308.67968",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.9846732708135141,
+      "volumetric_f1": 0.9995703131625516,
+      "diff_f1": 0.0379746835443038
+    },
+    {
+      "request_id": "B7A2N74ZJBF9MZHU_1770174519.556716",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.9838235060582474,
+      "volumetric_f1": 0.9885699422923568,
+      "diff_f1": 0.0
+    },
+    {
+      "request_id": "F332D3FXML85WLR2_1769424096.996583",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9880980615947982,
+      "volumetric_f1": 0.9821603879297522,
+      "diff_f1": 0.5805549079039403
+    },
+    {
+      "request_id": "F332D3FXML85WLR2_1769607142.566352",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.9919286758020585,
+      "volumetric_f1": 0.9293104516448795,
+      "diff_f1": 0.7962046204620462
+    },
+    {
+      "request_id": "F332D3FXML85WLR2_1770204558.429523",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9945919261993506,
+      "volumetric_f1": 0.9995032995103952,
+      "diff_f1": 0.9570552147239264
+    },
+    {
+      "request_id": "F332D3FXML85WLR2_1770204696.542443",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.9942969722239956,
+      "volumetric_f1": 0.9998571836618109,
+      "diff_f1": 0.9987389659520807
+    },
+    {
+      "request_id": "F332D3FXML85WLR2_1770205912.1187751",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.9891902956511786,
+      "volumetric_f1": 0.9996163913710624,
+      "diff_f1": 0.9998103854592735
+    },
+    {
+      "request_id": "F332D3FXML85WLR2_1770206307.074256",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.7203176011178329,
+      "volumetric_f1": 0.04291546750552172,
+      "diff_f1": 0.0
+    },
+    {
+      "request_id": "F332D3FXML85WLR2_1770208282.204381",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9869921519610364,
+      "volumetric_f1": 0.8971825343837628,
+      "diff_f1": 0.016602809706257982
+    },
+    {
+      "request_id": "F332D3FXML85WLR2_1770208371.265217",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.9887136771828215,
+      "volumetric_f1": 0.9739748827356635,
+      "diff_f1": 0.47470817120622566
+    },
+    {
+      "request_id": "F332D3FXML85WLR2_1770208398.300075",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.9781103632944735,
+      "volumetric_f1": 0.5346914029344004,
+      "diff_f1": 0.38370860501718435
+    },
+    {
+      "request_id": "SUJ2G2UMJQR7PMBX_1759203600.26663",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9875242779482758,
+      "volumetric_f1": 0.9986120638769682,
+      "diff_f1": 0.8432432432432433
+    },
+    {
+      "request_id": "SUJ2G2UMJQR7PMBX_1759203664.9815512",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.9874500438278913,
+      "volumetric_f1": 0.9978427847687531,
+      "diff_f1": 0.0
+    },
+    {
+      "request_id": "SUJ2G2UMJQR7PMBX_1759203739.2515829",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.9846256938111264,
+      "volumetric_f1": 0.9835440305131096,
+      "diff_f1": 0.006454587367450438
+    },
+    {
+      "request_id": "SUJ2G2UMJQR7PMBX_1759209917.917027",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9915664693006723,
+      "volumetric_f1": 1.0,
+      "diff_f1": 1.0
+    },
+    {
+      "request_id": "SUJ2G2UMJQR7PMBX_1759209987.785593",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.9907548670546309,
+      "volumetric_f1": 0.9739271670371004,
+      "diff_f1": 0.0
+    },
+    {
+      "request_id": "SUJ2G2UMJQR7PMBX_1759210049.432666",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.9916434343777192,
+      "volumetric_f1": 0.9951690821256038,
+      "diff_f1": 0.6299212598425197
+    },
+    {
+      "request_id": "ZK22J6VYRKQ2RTFD_1758873912.731081",
+      "difficulty": "medium",
+      "chamfer_similarity_norm": 0.9835932610614371,
+      "volumetric_f1": 0.905563052278762,
+      "diff_f1": 0.0006909258406264394
+    },
+    {
+      "request_id": "ZK22J6VYRKQ2RTFD_1758874422.1403751",
+      "difficulty": "hard",
+      "chamfer_similarity_norm": 0.9875462284859227,
+      "volumetric_f1": 0.9862219856897877,
+      "diff_f1": 0.07319013524264122
+    },
+    {
+      "request_id": "ZK22J6VYRKQ2RTFD_1758875163.609787",
+      "difficulty": "easy",
+      "chamfer_similarity_norm": 0.9893243762207887,
+      "volumetric_f1": 0.9995818349084219,
+      "diff_f1": 0.8788927335640139
+    }
+  ]
+}

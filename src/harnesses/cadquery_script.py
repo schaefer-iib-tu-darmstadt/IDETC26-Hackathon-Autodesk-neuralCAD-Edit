@@ -223,6 +223,7 @@ if __name__ == "__main__":
     # Export results if a result was returned
     if result is not None:
         export_as_step(result, output_dir)
-        export_as_image(result, output_dir)
+        if "--skip_render" not in argv:
+            export_as_image(result, output_dir)
     
     print("Script completed.")

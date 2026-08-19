@@ -172,7 +172,13 @@ class VLM(BaseVLM):
                     code = getattr(e, "code", None)
                     is_rate_limit = (code == 429) or ("resource_exhausted" in err_str) or ("quota" in err_str) or ("429" in err_str)
                     is_timeout = ("timeout" in err_str) or ("timed out" in err_str) or ("deadline" in err_str)
-                    is_transient = is_rate_limit or is_timeout or (code in [500, 502, 503, 504]) or ("unavailable" in err_str)
+                    is_network_drop = any(phrase in err_str for phrase in (
+                        "disconnect", "peer closed", "chunked read", "connection", "remote",
+                        "broken pipe", "reset", "eof", "protocol", "unavailable", "bad gateway",
+                    )) or isinstance(e, (ConnectionError, TimeoutError, OSError))
+                    is_transient = (
+                        is_rate_limit or is_timeout or is_network_drop or code in [500, 502, 503, 504]
+                    )
 
                     if attempt < max_retries and is_transient:
                         # Exponential backoff
@@ -181,6 +187,8 @@ class VLM(BaseVLM):
                             print(f"\n[Gemini/Vertex Rate Limit] 429 Quota/Rate limit reached! Waiting {delay:.1f}s before retry {attempt+1}/{max_retries}... Details: {e}", flush=True)
                         elif is_timeout:
                             print(f"\n[Gemini/Vertex Timeout] Socket timed out after {self.timeout}s! Waiting {delay:.1f}s before retry {attempt+1}/{max_retries}... Details: {e}", flush=True)
+                        elif is_network_drop:
+                            print(f"\n[Gemini/Vertex Network Drop] Retrying after {delay:.1f}s: {e}", flush=True)
                         else:
                             print(f"\n[Gemini/Vertex Error] Transient error ({code or type(e).__name__}). Waiting {delay:.1f}s before retry {attempt+1}/{max_retries}... Details: {e}", flush=True)
                         time.sleep(delay)
@@ -243,3 +251,29 @@ class VLM(BaseVLM):
             response_object.token_counts = token_count_dict
 
         return response_object
+
+    def agentic_cadquery_v3(self, instruction_text: str, task_info_dict: dict, harness_script_file: str, output_dir: str, **kwargs) -> dict:
+        """Run the Git4CAD v3 editing agent."""
+        from src.agents.cad_agent_v3 import CadAgentRunnerV3
+
+        agent_runner = CadAgentRunnerV3(config=self.config)
+        return agent_runner.run_edit(
+            instruction_text=instruction_text,
+            task_info_dict=task_info_dict,
+            output_dir=output_dir,
+            harness_script_file=harness_script_file,
+            max_turns=kwargs.get("max_turns", self.config.get("max_turns", 10)),
+        )
+
+    def agentic_cadquery_v4(self, instruction_text: str, task_info_dict: dict, harness_script_file: str, output_dir: str, **kwargs) -> dict:
+        """Run the grounded-delta-contract v4 editing agent."""
+        from src.agents.cad_agent_v4 import CadAgentRunnerV4
+
+        agent_runner = CadAgentRunnerV4(config=self.config)
+        return agent_runner.run_edit(
+            instruction_text=instruction_text,
+            task_info_dict=task_info_dict,
+            output_dir=output_dir,
+            harness_script_file=harness_script_file,
+            max_turns=kwargs.get("max_turns", self.config.get("max_turns", 10)),
+        )
