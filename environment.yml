@@ -15,6 +15,8 @@ dependencies:
     - openai
     - anthropic
     - google-genai
+    - google-adk>=2.7.0
+    - python-dotenv>=1.2.2
     - json-repair
     - scikit-learn
     - open3d
@@ -24,3 +26,6 @@ dependencies:
     - probreg
     - scipy
     - pyobjc-framework-Cocoa; sys_platform == 'darwin'
+    - pytest>=9
+# Conda does not install the project itself: run scripts and pytest from the repository root
+# with PYTHONPATH=. (uv sync does this for you through an editable install).

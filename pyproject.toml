@@ -13,6 +13,7 @@ dependencies = [
     "openai",
     "anthropic",
     "google-genai",
+    "google-adk>=2.7.0",
     "json-repair",
     "scikit-learn",
     "open3d",
@@ -22,10 +23,33 @@ dependencies = [
     "probreg",
     "scipy",
     "pyobjc-framework-Cocoa; sys_platform == 'darwin'",
+    "python-dotenv>=1.2.2",
 ]
 
 [project.optional-dependencies]
 vllm = ["vllm; sys_platform == 'linux'"]
+
+[dependency-groups]
+dev = ["pytest>=9"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# `src` is imported absolutely everywhere; this keeps the suite independent of the editable
+# install (uv sync) and of the launcher, so it always tests the checkout it lives in.
+pythonpath = ["."]
+# The dataset-wide bbox sweep takes ~6 minutes; opt in with `-m slow`. A `-m` on the command line
+# replaces this one, so select dataset tests with `-m 'dataset and not slow'`.
+addopts = "-m 'not slow'"
+markers = [
+    "slow: dataset-wide or render-heavy checks (minutes); select with -m slow",
+    "dataset: needs data/edit_192_external in place; skips when absent",
+]
+filterwarnings = [
+    # google-adk 2.7 warnings triggered by constructing the runner; not ours to fix here.
+    "ignore:BaseAgentConfig is deprecated.*:DeprecationWarning",
+    "ignore:The .plugins. argument is deprecated.*:DeprecationWarning",
+    "ignore:.*JSON_SCHEMA_FOR_FUNC_DECL.*:UserWarning",
+]
 
 [build-system]
 requires = ["hatchling"]
