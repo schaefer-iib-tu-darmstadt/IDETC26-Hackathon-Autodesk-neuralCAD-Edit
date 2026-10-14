@@ -157,6 +157,15 @@ def test_tracer_disables_itself_instead_of_raising(tmp_path):
     assert summary["trace_error"]
 
 
+# --- the first script has to edit the original --------------------------------------------------
+
+def test_head_step_is_the_origin_until_something_commits(repo, steps):
+    """`head_step` feeds `args['input_file']`, so the first script has to see the original."""
+    assert osp.abspath(repo.head_step) == osp.abspath(steps["origin"])
+    repo.try_commit(steps["edited"], attempt=1, render=False)
+    assert osp.abspath(repo.head_step) != osp.abspath(steps["origin"])
+
+
 # --- the STL only belongs to an export that really IS the input ---------------------------------
 
 def test_final_step_returns_the_origin_only_when_nothing_was_committed(repo, steps):

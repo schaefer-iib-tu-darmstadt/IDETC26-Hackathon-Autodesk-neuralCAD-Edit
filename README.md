@@ -102,8 +102,12 @@ the `src.*` imports resolve under `uv run`; a plain interpreter needs `PYTHONPAT
    Run the conversion exactly like this, never with `--no-skip`: that re-exports and overwrites the
    dataset `.stl` the agent ships on unchanged tasks (`--views-only` re-renders without touching
    meshes). Results: `data/edit_192_external/results/all_results.json` and the two plots next to it.
+   The JSON nests per-request scores as difficulty → user → metric → request id; for the 48-task
+   mean, average over all 48 requests and count a request missing for a user as 0.0, as the plots do.
    `run_all_benchmarks.py` first deletes every non-latest edit per (request, user) from the local
-   database, so back up `data/edit_192_external/mongita_db` before experimenting.
+   database, so back up `data/edit_192_external/mongita_db` before experimenting. It also embeds
+   every newly ingested render with the config's `dino_model` (`facebook/dinov2-base`, downloaded
+   from Hugging Face on first use); no scored metric reads those features.
 
    On Windows keep the clone's path short: the metric code opens meshes with open3d, which cannot
    read a path of 260 or more characters, and a task's output path under `data/model_outputs`
