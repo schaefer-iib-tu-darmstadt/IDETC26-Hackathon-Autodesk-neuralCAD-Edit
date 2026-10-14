@@ -379,8 +379,10 @@ class BaseVLM(ABC):
             raise ValueError("run_function must be provided to visual_update_loop")
 
         # `prompt_history` decides what the model sees on iteration i > 1:
-        #   "full" -- the organisers' loop: every earlier iteration's script, program output and
-        #            render stay in the prompt, so the context grows with each round.
+        #   "full" -- the organisers' loop: every earlier iteration's script and program output
+        #            stay in the prompt, so the context grows with each round. Every image slot
+        #            names the same tmp.png, re-read when the prompt is built, so all of them
+        #            show the latest render.
         #   "last" -- only the previous iteration's script, output and render are shown on top of
         #            the fixed instruction block, and over-long program output is trimmed. The
         #            gemini-3.7-flash baseline numbers in this repository were produced with this

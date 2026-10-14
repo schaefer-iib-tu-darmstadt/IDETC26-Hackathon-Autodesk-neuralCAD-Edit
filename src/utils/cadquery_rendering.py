@@ -166,12 +166,15 @@ def render_to_png(occ_shape, png_path, proj=(1, -1, 1), width=1024, height=1024)
     """Render an OCP shape to a PNG file from a given projection direction.
 
     Args:
-        occ_shape: A CadQuery Shape or raw OCP TopoDS_Shape.
+        occ_shape: A CadQuery Workplane, Assembly or Shape, or a raw OCP TopoDS_Shape.
         png_path: Output PNG file path.
         proj: (Vx, Vy, Vz) camera projection direction tuple.
         width: Image width in pixels.
         height: Image height in pixels.
     """
+    # Collapse before branching: `cadquery_convert.py` hands over the whole Workplane, which the
+    # OCP branch below cannot wrap (`AIS_Shape` needs a TopoDS_Shape).
+    occ_shape = _as_shape(occ_shape)
     if sys.platform == "win32":
         _render_to_png_vtk(occ_shape, png_path, proj=proj, width=width, height=height)
         return
