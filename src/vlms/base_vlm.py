@@ -6,6 +6,7 @@ import subprocess
 import json
 import shutil
 import sys
+import time
 
 class GenerateResponseResult:
     def __init__(self, response_json=None, response_text=None, token_counts=None, thinking_text=None):
@@ -13,6 +14,15 @@ class GenerateResponseResult:
         self.response_text = response_text
         self.token_counts = token_counts
         self.thinking_text = thinking_text
+
+def _parse_prompt_history(raw):
+    """Normalise the `prompt_history` config key: absent / null -> "full"; anything else must be
+    "full" or "last" (case-insensitive). See `BaseVLM.visual_update_loop` for what they mean."""
+    mode = "full" if raw is None else str(raw).lower()
+    if mode not in ("full", "last"):
+        raise ValueError(f"prompt_history must be 'full' or 'last', got {mode!r}")
+    return mode
+
 
 class BaseVLM(ABC):
     """
@@ -22,6 +32,9 @@ class BaseVLM(ABC):
     def __init__(self, config: dict, cache: bool = True):
         self.config = config
         self.cache = cache
+        # Validated at construction so a typo fails when the model is loaded, before the harness
+        # has created any per-task output folder.
+        self.prompt_history = _parse_prompt_history(config.get("prompt_history"))
 
     @abstractmethod
     def create_messages(self, inputs: list, sys=None) -> list:
@@ -364,34 +377,69 @@ class BaseVLM(ABC):
     def visual_update_loop(self, instruction_text, task_info_dict, harness_script_file, output_dir, max_iters=10, run_function=None, conversation_instruction="", output_script_key=None, input_file=None):
         if run_function is None:
             raise ValueError("run_function must be provided to visual_update_loop")
-        
-        messages = []
 
-        messages.append(conversation_instruction)
-
+        # `prompt_history` decides what the model sees on iteration i > 1:
+        #   "full" -- the organisers' loop: every earlier iteration's script, program output and
+        #            render stay in the prompt, so the context grows with each round.
+        #   "last" -- only the previous iteration's script, output and render are shown on top of
+        #            the fixed instruction block, and over-long program output is trimmed. The
+        #            gemini-3.7-flash baseline numbers in this repository were produced with this
+        #            variant (see the `_note` on that config entry).
+        history_mode = _parse_prompt_history(self.config.get("prompt_history"))
+        base_messages = []
+        base_messages.append(conversation_instruction)
         harness_script = self.read_text_file(harness_script_file)
-
-        messages.append(harness_script)
-
-        messages.append("Instruction:")
-        messages.append(instruction_text)
-        messages.append("Task information:")
-        messages.extend(self.load_task_info_dict(task_info_dict))
-        messages.append("Last output rendering: None (this is the first iteration)")
+        base_messages.append(harness_script)
+        base_messages.append("Instruction:")
+        base_messages.append(instruction_text)
+        base_messages.append("Task information:")
+        base_messages.extend(self.load_task_info_dict(task_info_dict))
 
         iters_remaining = max_iters
 
         token_count_accumulator = {
         }
+        iteration_timings = []
+        termination_reason = "max_iterations_reached"
 
         iter_count = 0
+        last_script = None
+        last_program_output = None
+        last_image_fn = None
+        # "full" mode keeps one growing list, exactly as the organisers' harness did.
+        history_messages = list(base_messages)
+        history_messages.append("Last output rendering: None (this is the first iteration)")
+
         while iters_remaining > 0:
-            messages.append(f"Iterations remaining: {iters_remaining}")
+            print(f"\n--- [Iteration {iter_count + 1}/{max_iters}] (Remaining: {iters_remaining}) ---", flush=True)
+
+            if history_mode == "last":
+                # Fresh prompt: base instructions plus the latest iteration's feedback only.
+                messages = list(base_messages)
+                if iter_count == 0:
+                    messages.append("Last output rendering: None (this is the first iteration)")
+                else:
+                    messages.append("The function that you produced from the last iteration:")
+                    messages.append(last_script if last_script else "")
+                    messages.append("Program output from last iteration:")
+                    messages.append(last_program_output if last_program_output else "")
+                    messages.append("Visual output from last iteration:")
+                    if last_image_fn and os.path.exists(last_image_fn):
+                        messages.append(last_image_fn)
+                    else:
+                        messages.append("None")
+                messages.append(f"Iterations remaining: {iters_remaining}")
+            else:
+                history_messages.append(f"Iterations remaining: {iters_remaining}")
+                messages = history_messages
+
+            t_vlm_start = time.perf_counter()
             whole_response = self.generate_response(self.create_messages(messages, sys=self.config["system_prompt"]), return_token_counts=True)
+            t_vlm = time.perf_counter() - t_vlm_start
 
             response = whole_response.response_json
             token_counts = whole_response.token_counts            
-
+            thinking_tokens = token_counts.get("thinking_tokens", 0)
 
             for k in token_counts.keys():
                 token_count_accumulator[k] = token_count_accumulator.get(k, 0) + token_counts[k]
@@ -403,27 +451,65 @@ class BaseVLM(ABC):
                 try:
                     response = json.loads(response)
                 except json.JSONDecodeError as e:
-                    print(f"Error parsing response as json: {e}")
+                    print(f"Error parsing response as json: {e}", flush=True)
                     response = {}
 
             script = response.get("my_cad_function", "")
             complete = response.get("complete", False)
 
             if complete:
-                print("Task completed.")
+                termination_reason = "model_declared_complete"
+                iteration_timings.append({
+                    "iteration": iter_count + 1,
+                    "vlm_time_seconds": round(t_vlm, 3),
+                    "cadquery_time_seconds": 0.0,
+                    "total_time_seconds": round(t_vlm, 3),
+                    "input_tokens": token_counts.get("input_tokens", 0),
+                    "output_tokens": token_counts.get("output_tokens", 0),
+                    "thinking_tokens": thinking_tokens,
+                    "completed": True,
+                    "had_error": False,
+                })
+                print(f"[Iter {iter_count + 1}/{max_iters}] Task declared complete by model! (VLM API: {t_vlm:.2f}s | thinking: {thinking_tokens} tok)", flush=True)
                 break
 
-            # run the script in FreeCAD
+            print(f"[CadQuery] Running script in CadQuery environment...", flush=True)
+            t_cad_start = time.perf_counter()
+            # run the script in CadQuery
             program_output = run_function(script, harness_script_file, output_dir, input_file=input_file)
+            t_cad = time.perf_counter() - t_cad_start
+
+            # Note: In "last" mode, truncate excessively large terminal outputs for the prompt.
+            if history_mode == "last" and len(program_output) > 10000:
+                program_output_for_prompt = program_output[:4000] + "\n... [output truncated for prompt] ...\n" + program_output[-4000:]
+            else:
+                program_output_for_prompt = program_output
+
+            # Note: Record per-iteration timings and error flags for observability
+            has_error = any(err in program_output for err in ["Error", "Traceback", "Exception", "SyntaxError", "ValueError"])
+            iteration_timings.append({
+                "iteration": iter_count + 1,
+                "vlm_time_seconds": round(t_vlm, 3),
+                "cadquery_time_seconds": round(t_cad, 3),
+                "total_time_seconds": round(t_vlm + t_cad, 3),
+                "input_tokens": token_counts.get("input_tokens", 0),
+                "output_tokens": token_counts.get("output_tokens", 0),
+                "thinking_tokens": thinking_tokens,
+                "completed": False,
+                "had_error": has_error,
+            })
+
+            print(f"[Iter {iter_count + 1}/{max_iters}] VLM Think/Gen: {t_vlm:.2f}s (thinking: {thinking_tokens} tok) | CadQuery Exec: {t_cad:.2f}s | Iter Total: {t_vlm + t_cad:.2f}s" + (" [ERROR OCCURRED]" if has_error else ""), flush=True)
 
             # Logging iteration outputs
             iteration_dir = os.path.join(output_dir, "iteration_output")
             os.makedirs(iteration_dir, exist_ok=True)
             iteration_text_file = os.path.join(iteration_dir, f"{iter_count}_response.txt")
 
+            # Note: Explicit UTF-8 encoding for Windows support
             with open(iteration_text_file, 'w', encoding='utf-8') as f:
                 f.write("Thinking text:\n")
-                f.write(whole_response.thinking_text)
+                f.write(whole_response.thinking_text if whole_response.thinking_text else "")
                 f.write("\n\n")
                 # write the script with correct indentation
                 f.write("Generated script:\n")
@@ -436,20 +522,22 @@ class BaseVLM(ABC):
                 if os.path.exists(image_fn):
                     shutil.copy(image_fn, osp.join(iteration_dir, f"{iter_count}_output.png"))
 
-
-            messages.append("Program output from last iteration:")
-            messages.append(program_output)
-            messages.append("Visual output from last iteration:")
-            
+            # Feedback for the next iteration.
             image_fn = osp.join(output_dir, "tmp.png")
-            if os.path.exists(image_fn):
-                messages.append(image_fn)
+            if history_mode == "last":
+                # Only the latest script, output and image are shown next time.
+                last_script = script
+                last_program_output = program_output_for_prompt
+                last_image_fn = image_fn
             else:
-                messages.append("None")
-            messages.append("The function that you produced from the last iteration:")
-            messages.append(script)
+                # Organisers' loop: append to the growing history, same order and labels as before.
+                history_messages.append("Program output from last iteration:")
+                history_messages.append(program_output)
+                history_messages.append("Visual output from last iteration:")
+                history_messages.append(image_fn if os.path.exists(image_fn) else "None")
+                history_messages.append("The function that you produced from the last iteration:")
+                history_messages.append(script)
 
-            # print(messages)
             iters_remaining -= 1
             iter_count += 1
 
@@ -459,19 +547,27 @@ class BaseVLM(ABC):
 
         return_dict = {
             "token_counts": token_count_accumulator,
+            "num_iterations": len(iteration_timings),
+            "termination_reason": termination_reason,
+            # Recorded so a run folder says which prompt layout produced it.
+            "prompt_history": history_mode,
+            "total_vlm_time_seconds": round(sum(it["vlm_time_seconds"] for it in iteration_timings), 3),
+            "total_cadquery_time_seconds": round(sum(it["cadquery_time_seconds"] for it in iteration_timings), 3),
+            "iteration_timings": iteration_timings,
         }
         if output_script_key is not None:
             return_dict[output_script_key] = script
         return return_dict
 
-    
+
 ##########
 ########## CadQuery specific methods for VLMs that generate CadQuery scripts
 ########## 
     def run_cadquery_script(self, script: str, harness_script_file: str, output_dir: str, input_file: str = None) -> str:
         # save script to temp file
         temp_script_file = os.path.join(output_dir, "temp_script.py")
-        with open(temp_script_file, 'w') as f:
+        # Note: Explicit UTF-8 encoding for Windows support
+        with open(temp_script_file, 'w', encoding='utf-8') as f:
             f.write(script)
 
         cmd = [
