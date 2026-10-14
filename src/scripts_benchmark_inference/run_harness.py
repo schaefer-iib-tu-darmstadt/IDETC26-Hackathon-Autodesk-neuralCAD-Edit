@@ -1,3 +1,4 @@
+# Note: Baseline harness script with added parallel worker support (--workers) and progress logging.
 # from src.scripts.build_instructions_db import load_all_instructions  # Import the instructions_db directly
 from src.utils.args import parse_args
 from src.utils.process_config import load_config
@@ -14,6 +15,8 @@ import pandas as pd
 import argparse
 import time
 import shutil
+import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 task_instructions = {
@@ -83,7 +86,8 @@ def run_single_task(vlm, row, args):
     instructions = task_instructions.get(row["request_type"], "No instructions available.")
 
     start = time.time()
-    edit_id = f"{args.userId}_{start}"
+    # Prevent parallel tasks that start in the same clock tick from sharing an output directory.
+    edit_id = f"{args.userId}_{start}_{uuid.uuid4().hex[:6]}"
 
     sample_output_folder = os.path.join(args.output_folder, edit_id, "brep_end", str(start))
     os.makedirs(sample_output_folder, exist_ok=True)
@@ -162,19 +166,42 @@ def process_parquet(args, config, model, required_extensions=[]):
 
     print(existing_request_ids)
 
-    # ray.init(num_cpus=4)
-    # refs = [run_single_task.remote(model.config, row, args) for index, row in parquet.iterrows() if row["request"] not in existing_request_ids]
-    # results = ray.get(refs)
-    # ray.shutdown()
-    done_count = 0
-    for index, row in parquet.iterrows():
-        if row["request"] in existing_request_ids:
-            print(f"Skipping existing request {row['request']}. Already exists.")
-            continue
-        run_single_task(model, row, args)
-        done_count += 1
-        if done_count >= args.n_rows:
-            break
+    total_rows = len(parquet)
+    print(f"Total tasks in dataset: {total_rows}. Found {len(existing_request_ids)} already completed.")
+
+    pending_rows = [row for _, row in parquet.iterrows() if row["request"] not in existing_request_ids]
+    if args.n_rows < len(pending_rows):
+        pending_rows = pending_rows[:args.n_rows]
+
+    print(f"Tasks to run in this batch: {len(pending_rows)}")
+
+    if not pending_rows:
+        print("No tasks remaining to process.")
+    elif args.workers > 1:
+        # Note: Multithreaded execution across tasks
+        print(f"Running {len(pending_rows)} tasks in parallel using {args.workers} workers...")
+        with ThreadPoolExecutor(max_workers=args.workers) as executor:
+            future_to_req = {
+                executor.submit(run_single_task, model, row, args): row["request"]
+                for row in pending_rows
+            }
+            completed_count = 0
+            for future in as_completed(future_to_req):
+                req_id = future_to_req[future]
+                completed_count += 1
+                try:
+                    future.result()
+                    print(f"[{completed_count}/{len(pending_rows)}] Completed Task: {req_id}")
+                except Exception as e:
+                    print(f"[{completed_count}/{len(pending_rows)}] Error in Task {req_id}: {e}")
+    else:
+        # Note: Sequential execution with progress logging
+        for idx, row in enumerate(pending_rows, 1):
+            print(f"\n================================================================================")
+            print(f"[{idx}/{len(pending_rows)}] Starting Task: {row['request']}")
+            print(f"Instruction: {row.get('request_text', 'N/A')}")
+            print(f"================================================================================")
+            run_single_task(model, row, args)
 
     if args.remove_failed:
         cleanup_output_folder(output_folder, required_extensions=required_extensions)
@@ -290,6 +317,7 @@ def parse_args():
     parser.add_argument("--required-extensions", type=str, nargs="*", default=["step"], help="List of required file extensions to consider a folder valid")
     parser.add_argument("--remove_failed", action="store_true", help="Whether to remove folders that don't have the required extensions")
     parser.add_argument("--n-rows", type=int, default=999999, help="Number of rows to process from the input parquet file")
+    parser.add_argument("--workers", type=int, default=1, help="Number of parallel worker threads to process tasks concurrently")
 
 
     args = parser.parse_args()
