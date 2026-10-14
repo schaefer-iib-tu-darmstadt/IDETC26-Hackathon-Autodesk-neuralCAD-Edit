@@ -7,6 +7,7 @@ Uses Cocoa_Window on macOS.
 Uses CadQuery's VTK-based vis.show on Windows.
 """
 
+import math
 import os
 import shutil
 import sys
@@ -25,22 +26,136 @@ VIEW_PROJECTIONS = {
 }
 
 
-def _render_to_png_vtk(occ_shape, png_path, proj=(1, -1, 1), width=1024, height=1024):
-    """Render using CadQuery's VTK-based vis.show (Windows)."""
+# Fraction of the frame the part should span. Fusion's own dataset renders sit at ~0.79 of
+# the image width and never touch the border; matching that keeps our views comparable to the
+# ground-truth images they are shown next to.
+FRAME_FILL = 0.8
+# VTK's default perspective view angle. `vis.show` does not expose it, so the framing maths
+# below has to assume it.
+VTK_VIEW_ANGLE_DEG = 30.0
+# Grey, because cadquery.vis defaults to DEFAULT_COLOR = (1, 0.8, 0) -- gold. The dataset's
+# Fusion renders are grey, and a submission that mixes the two reads as two different parts.
+SHAPE_COLOR = (0.72, 0.74, 0.78)
+
+
+def _as_shape(occ_shape):
+    """Every input form collapsed to one CadQuery Shape covering the WHOLE model.
+
+    `Workplane.val()` returns only the first object on the stack, so a multi-solid import
+    would be framed -- and rendered -- as if the other solids did not exist.
+    """
+    if isinstance(occ_shape, cq.Assembly):
+        return occ_shape.toCompound()
+    if isinstance(occ_shape, cq.Workplane):
+        solids = [obj for obj in occ_shape.vals() if isinstance(obj, cq.Shape)]
+        if len(solids) == 1:
+            return solids[0]
+        return cq.Compound.makeCompound(solids)
+    if isinstance(occ_shape, cq.Shape):
+        return occ_shape
+    return cq.Shape.cast(occ_shape)
+
+
+def _camera(shape, proj):
+    """Focus, position and view-up that frame `shape` at FRAME_FILL of the image.
+
+    A fixed distance cannot work: the dataset's parts span three orders of magnitude in size
+    and are not centred on the origin. Distance is therefore derived from the extent of the
+    bounding box *as projected onto the image plane*, not from its diagonal -- an elongated
+    part seen down its long axis has a much smaller silhouette than its diagonal suggests,
+    and framing on the diagonal leaves it a speck in the middle of the frame.
+    """
+    bounds = shape.BoundingBox()
+    focus = (
+        (bounds.xmin + bounds.xmax) / 2.0,
+        (bounds.ymin + bounds.ymax) / 2.0,
+        (bounds.zmin + bounds.zmax) / 2.0,
+    )
+
+    norm = math.sqrt(sum(float(c) ** 2 for c in proj)) or 1.0
+    direction = tuple(float(c) / norm for c in proj)          # focus -> camera
+    forward = tuple(-c for c in direction)                     # camera -> focus
+
+    # Pick a view-up that is not parallel to the view direction, then orthonormalise.
+    up_hint = (0.0, 0.0, 1.0) if abs(direction[2]) < 0.9 else (0.0, 1.0, 0.0)
+    right = _cross(forward, up_hint)
+    if _length(right) < 1e-9:
+        right = _cross(forward, (1.0, 0.0, 0.0))
+    right = _unit(right)
+    view_up = _unit(_cross(right, forward))
+
+    half_right = half_up = 0.0
+    for corner in _corners(bounds):
+        offset = tuple(corner[i] - focus[i] for i in range(3))
+        half_right = max(half_right, abs(_dot(offset, right)))
+        half_up = max(half_up, abs(_dot(offset, view_up)))
+
+    half_extent = max(half_right, half_up)
+    tan_half_angle = math.tan(math.radians(VTK_VIEW_ANGLE_DEG) / 2.0)
+    distance = half_extent / (FRAME_FILL * tan_half_angle) if half_extent else 10.0
+    # Clear of the geometry even for a degenerate or near-planar shape.
+    distance = max(distance, half_extent * 1.5, 1e-6)
+
+    position = tuple(focus[i] + direction[i] * distance for i in range(3))
+    return focus, position, view_up
+
+
+def _corners(bounds):
+    return [
+        (x, y, z)
+        for x in (bounds.xmin, bounds.xmax)
+        for y in (bounds.ymin, bounds.ymax)
+        for z in (bounds.zmin, bounds.zmax)
+    ]
+
+
+def _cross(a, b):
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+
+def _dot(a, b):
+    return sum(x * y for x, y in zip(a, b))
+
+
+def _length(a):
+    return math.sqrt(_dot(a, a))
+
+
+def _unit(a):
+    length = _length(a) or 1.0
+    return tuple(c / length for c in a)
+
+
+def _render_to_png_vtk(occ_shape, png_path, proj=(1, -1, 1), width=1024, height=1024,
+                       edges=False):
+    """Render using CadQuery's VTK-based vis.show (Windows).
+
+    `edges=True` draws the *tessellation* triangles, not the B-rep feature edges, which makes
+    every cylinder read as a black band and every planar face as a wireframe. Silhouette and
+    feature edges survive without it, so the default is off.
+    """
     from cadquery.vis import show
 
-    wrapped = occ_shape.wrapped if hasattr(occ_shape, "wrapped") else occ_shape
-    distance = 10.0
-    position = tuple(float(component) * distance for component in proj)
+    shape = _as_shape(occ_shape)
+    focus, position, view_up = _camera(shape, proj)
+
+    # An Assembly carrying an explicit Color is the only way to override vis.show's gold:
+    # `show` has no color parameter, but `_to_assy` preserves the colour of an Assembly child.
+    coloured = cq.Assembly(shape, color=cq.Color(*SHAPE_COLOR))
 
     show(
-        wrapped,
+        coloured,
         screenshot=str(png_path),
         interact=False,
         width=width,
         height=height,
         position=position,
-        focus=(0.0, 0.0, 0.0),
+        focus=focus,
+        viewup=view_up,
+        roll=0,
+        elevation=0,
+        azimuth=0,
+        edges=edges,
         trihedron=False,
         gradient=False,
         bgcolor=(1.0, 1.0, 1.0),

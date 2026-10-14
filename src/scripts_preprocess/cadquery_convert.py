@@ -93,8 +93,10 @@ def export_png_view(png_path, workplane, view_name, image_size=1024):
             print(f"Unknown view: {view_name}")
             return False
 
-        shape = workplane.val() if hasattr(workplane, 'val') else workplane
-        render_to_png(shape, png_path, proj=VIEW_PROJECTIONS[view_name],
+        # Hand the Workplane over whole. `.val()` returns only the first object on the stack,
+        # which would silently drop the other components of a multi-solid import; the renderer
+        # collapses every input form itself (`cadquery_rendering._as_shape`).
+        render_to_png(workplane, png_path, proj=VIEW_PROJECTIONS[view_name],
                       width=image_size, height=image_size)
         return True
 
@@ -162,14 +164,18 @@ def find_cad_files(root_directory, extensions=['step']):
     return sorted(set(cad_files))
 
 
-def process_file(cad_file, skip_existing=True, image_size=1024):
+def process_file(cad_file, skip_existing=True, image_size=1024, views_only=False,
+                 write_views=True):
     """Process a single CAD file, exporting to all formats.
-    
+
     Args:
         cad_file: Path to CAD file
         skip_existing: If True, skip files where all outputs exist
         image_size: Size of output images
-    
+        views_only: If True, never write the STL or STEP, only the PNG views
+        write_views: If False, never write the PNG views. No scored metric reads an
+            image, so a run whose only purpose is scoring can skip 7 renders per part.
+
     Returns:
         Tuple of (success, skipped, error_message)
     """
@@ -188,27 +194,37 @@ def process_file(cad_file, skip_existing=True, image_size=1024):
     step_exists = step_output_path.exists() if str(step_output_path) != str(cad_path) else True
     png_exists = all(png.exists() for png in png_files)
     
+    if views_only:
+        stl_exists = step_exists = True
+    if not write_views:
+        png_exists = True
+
     if skip_existing and stl_exists and step_exists and png_exists:
         return False, True, None  # Not processed, skipped, no error
-    
+
+    # --no-skip has to force the exports too, not merely bypass the early return above:
+    # otherwise every per-format guard below still sees its output on disk, nothing is
+    # rewritten, and the file is nonetheless reported as "successfully processed".
+    force = not skip_existing
+
     # Load the STEP file
     try:
         workplane = load_step_file(cad_path)
         if workplane is None:
             return False, False, "Failed to load STEP file"
-        
+
         # Export STL if needed
-        if not stl_exists:
+        if not views_only and (force or not stl_exists):
             if not export_stl(stl_path, workplane):
                 return False, False, "STL export failed"
-        
+
         # Export STEP if needed (and it's a different file)
-        if not step_exists and str(step_output_path) != str(cad_path):
+        if not views_only and (force or not step_exists) and str(step_output_path) != str(cad_path):
             if not export_step(step_output_path, workplane):
                 return False, False, "STEP export failed"
-        
+
         # Export PNG views if needed
-        if not png_exists:
+        if write_views and (force or not png_exists):
             successful_views = export_all_png_views(str(base_name), workplane, image_size)
             if successful_views == 0:
                 return False, False, "All PNG view exports failed"
@@ -235,14 +251,32 @@ def main():
         help='Process all files even if outputs already exist'
     )
     parser.add_argument(
+        '--views-only',
+        action='store_true',
+        help='Only write the PNG views, never the STL or STEP. Use this to re-render images of '
+             'a run that has already been scored: the STL is the mesh every metric is computed '
+             'on, and re-exporting it would silently change the artifact behind those numbers.'
+    )
+    parser.add_argument(
+        '--no-views',
+        action='store_true',
+        help='Never write the PNG views, only the STL. No scored metric reads an image, so a '
+             'conversion whose only purpose is re-scoring can skip 7 renders per part. The '
+             'ingest still succeeds; the breps simply carry no images.'
+    )
+    parser.add_argument(
         '--image-size',
         type=int,
         default=1024,
         help='Size of output images in pixels (default: 1024)'
     )
-    
+
     args = parser.parse_args()
-    
+
+    if args.views_only and args.no_views:
+        print("Error: --views-only and --no-views are mutually exclusive.")
+        sys.exit(1)
+
     # Validate root directory
     root_path = Path(args.root_directory)
     if not root_path.exists():
@@ -270,7 +304,9 @@ def main():
         success, skipped, error = process_file(
             cad_file,
             skip_existing=not args.no_skip,
-            image_size=args.image_size
+            image_size=args.image_size,
+            views_only=args.views_only,
+            write_views=not args.no_views
         )
         
         if success:
